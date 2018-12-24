@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <title>Speed Emulator</title>
+    <meta charset="utf=8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+    <script
+      src="https://code.jquery.com/jquery-3.1.1.min.js"
+      integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+      crossorigin="anonymous"></script>
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.0/css/materialize.min.css">
+
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.0/js/materialize.min.js"></script>
+
+    <style>
+    .header {
+      box-shadow: 0 1px 8px rgba(0,0,0,.3);
+    }
+    .header .row {margin-bottom: 0;}
+    .container-full {
+      position:absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      /*border: 1px dashed #000;*/
+      padding: 0;
+      margin: 0;
+      /*background: rgba(150,100,255,0.87);*/
+    }
+    </style>
+
+    <script>
+      var canvas, ctx, initialTime;
+      var state = {
+        ppi: 98.4375,
+        object: {
+          position: 0,
+          velocity: 1,
+          acceleration: 0,
+        },
+      };
+
+      function findFirstPositive(b, a, i, c) {
+        c=(d,e)=>e>=d?(a=d+(e-d)/2,0<b(a)&&(a==d||0>=b(a-1))?a:0>=b(a)?c(a+1,e):c(d,a-1)):-1
+        for (i = 1; 0 >= b(i);) i *= 2
+        return c(i / 2, i)|0
+      }
+
+
+      state.ppi = findFirstPositive(x => matchMedia(`(max-resolution: ${x}dpi)`).matches)
+
+      document.addEventListener('DOMContentLoaded', function(e){
+        canvas = document.getElementById("c"); window.c = canvas;
+        ctx = canvas.getContext("2d");
+
+        var ppiInput = document.querySelector("input[name=ppi]");
+        ppiInput.value = state.ppi;
+        ppiInput.addEventListener('change', function() {
+          state.ppi = parseFloat(ppiInput.value);
+        });
+
+        window.velocityInput = document.querySelector("input[name=velocity]");
+        velocityInput.value = state.object.velocity;
+        velocityInput.addEventListener('change', function() {
+          state.object.velocity = parseFloat(velocityInput.value);
+        });
+
+        var accelInput = document.querySelector("input[name=accel]");
+        accelInput.value = state.object.acceleration;
+        accelInput.addEventListener('change', function() {
+          state.object.acceleration = parseFloat(accelInput.value);
+        });
+
+        window.onresize = function() {
+          canvas.width = canvas.parentElement.offsetWidth;
+          canvas.height = canvas.parentElement.offsetHeight;
+        };
+        window.onresize();
+
+        initialTime = Date.now();
+        (function loop() {
+          var dt = (Date.now() - initialTime)/1000;
+          initialTime = Date.now();
+          update(dt);
+          draw();
+          requestAnimationFrame(loop);
+        })();
+      });
+
+      function timeit(f, name) {
+        var ti = Date.now();
+        f();
+        var dt = Date.now() - ti;
+        console.log("timeit",name||"", dt, "ms");
+      }
+
+
+      function update(dt) {
+        state.object.velocity += state.object.acceleration * dt;
+        state.object.position += state.object.velocity * state.ppi * dt;
+
+        var overflow = state.object.position - canvas.width;
+        if (state.object.velocity > 0 && overflow > 0) state.object.position = overflow;
+        if (state.object.velocity < 0 && overflow + canvas.width < 0) state.object.position = 2*canvas.width + overflow;
+
+        if (isNaN(state.object.position)) state.object.position = 0;
+
+        if (window.velocityInput.value != state.object.velocity && state.object.acceleration != 0)
+          window.velocityInput.value = state.object.velocity;
+      }
+
+      function draw(dt) {
+        // timeit(function() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // }, "ctx.clearRect");
+
+        // timeit(function() {
+          ctx.fillStyle = "rgba(0,0,0,0.125)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // },"ctx.fillRect");
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(0,0,0,0.5)";
+        ctx.setLineDash([5,5]);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, state.ppi, state.ppi);
+
+        // ctx.beginPath();
+        // ctx.arc(canvas.width/2, canvas.height/2, state.ppi*36/25.4/2, 0, 2*Math.PI, false);
+        // ctx.stroke();
+
+
+        ctx.restore();
+
+
+        ctx.fillStyle = "rgba(0,0,0,0.87)";
+        ctx.fillRect(state.object.position, 0, 6, canvas.height);
+      }
+
+    </script>
+  </head>
+  <body>
+    <div id='testdiv' style='height: 1in; left: -100%; position: absolute; top: -100%; width: 1in;'></div>
+    <div class="container-full">
+      <div class="header">
+        <div class="row">
+          <div class="input-field col s4">
+            <input type=text name="ppi" id="ppi">
+            <label for="ppi">Pixels per Inch</label>
+          </div>
+          <div class="input-field col s4">
+            <input type=text name="velocity" id="velocity">
+            <label for="velocity">Velocity (in/s)</label>
+          </div>
+          <div class="input-field col s4">
+            <input type=text name="accel" id="accel">
+            <label for="accel">Accel (in/s/s)</label>
+          </div>
+        </div>
+      </div>
+
+
+      <canvas id="c">Your browser does not support the HTML5 Canvas element! Try Google Chrome?</canvas>
+    </div>
+  </body>
+</html>
